@@ -32,12 +32,12 @@
 
 #include "core/config/project_settings.h"
 #include "core/string/translation.h"
-#include "editor/editor_scale.h"
 #include "editor/editor_translation_parser.h"
 #include "editor/editor_undo_redo_manager.h"
 #include "editor/filesystem_dock.h"
 #include "editor/gui/editor_file_dialog.h"
 #include "editor/pot_generator.h"
+#include "editor/themes/editor_scale.h"
 #include "scene/gui/control.h"
 
 void LocalizationEditor::_notification(int p_what) {
@@ -189,7 +189,7 @@ void LocalizationEditor::_translation_res_select() {
 	if (updating_translations) {
 		return;
 	}
-	call_deferred(SNAME("update_translations"));
+	callable_mp(this, &LocalizationEditor::update_translations).call_deferred();
 }
 
 void LocalizationEditor::_translation_res_option_popup(bool p_arrow_clicked) {

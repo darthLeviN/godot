@@ -2551,6 +2551,7 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_enable_box_projection", "probe", "enable"), &RenderingServer::reflection_probe_set_enable_box_projection);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_enable_shadows", "probe", "enable"), &RenderingServer::reflection_probe_set_enable_shadows);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_cull_mask", "probe", "layers"), &RenderingServer::reflection_probe_set_cull_mask);
+	ClassDB::bind_method(D_METHOD("reflection_probe_set_reflection_mask", "probe", "layers"), &RenderingServer::reflection_probe_set_reflection_mask);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_resolution", "probe", "resolution"), &RenderingServer::reflection_probe_set_resolution);
 	ClassDB::bind_method(D_METHOD("reflection_probe_set_mesh_lod_threshold", "probe", "pixels"), &RenderingServer::reflection_probe_set_mesh_lod_threshold);
 
@@ -3362,7 +3363,6 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("get_default_clear_color"), &RenderingServer::get_default_clear_color);
 	ClassDB::bind_method(D_METHOD("set_default_clear_color", "color"), &RenderingServer::set_default_clear_color);
 
-	ClassDB::bind_method(D_METHOD("has_feature", "feature"), &RenderingServer::has_feature);
 	ClassDB::bind_method(D_METHOD("has_os_feature", "feature"), &RenderingServer::has_os_feature);
 	ClassDB::bind_method(D_METHOD("set_debug_generate_wireframes", "generate"), &RenderingServer::set_debug_generate_wireframes);
 
@@ -3380,9 +3380,6 @@ void RenderingServer::_bind_methods() {
 	BIND_ENUM_CONSTANT(RENDERING_INFO_BUFFER_MEM_USED);
 	BIND_ENUM_CONSTANT(RENDERING_INFO_VIDEO_MEM_USED);
 
-	BIND_ENUM_CONSTANT(FEATURE_SHADERS);
-	BIND_ENUM_CONSTANT(FEATURE_MULTITHREADED);
-
 	ADD_SIGNAL(MethodInfo("frame_pre_draw"));
 	ADD_SIGNAL(MethodInfo("frame_post_draw"));
 
@@ -3392,6 +3389,13 @@ void RenderingServer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("create_local_rendering_device"), &RenderingServer::create_local_rendering_device);
 
 	ClassDB::bind_method(D_METHOD("call_on_render_thread", "callable"), &RenderingServer::call_on_render_thread);
+
+#ifndef DISABLE_DEPRECATED
+	ClassDB::bind_method(D_METHOD("has_feature", "feature"), &RenderingServer::has_feature);
+
+	BIND_ENUM_CONSTANT(FEATURE_SHADERS);
+	BIND_ENUM_CONSTANT(FEATURE_MULTITHREADED);
+#endif
 }
 
 void RenderingServer::mesh_add_surface_from_mesh_data(RID p_mesh, const Geometry3D::MeshData &p_mesh_data) {

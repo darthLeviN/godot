@@ -34,14 +34,12 @@
 #include "core/input/input.h"
 #include "core/io/resource_saver.h"
 #include "core/object/class_db.h"
-#include "core/object/message_queue.h"
 #include "core/os/keyboard.h"
 #include "editor/debugger/editor_debugger_node.h"
 #include "editor/editor_feature_profile.h"
 #include "editor/editor_node.h"
 #include "editor/editor_paths.h"
 #include "editor/editor_quick_open.h"
-#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
@@ -56,6 +54,7 @@
 #include "editor/plugins/script_editor_plugin.h"
 #include "editor/reparent_dialog.h"
 #include "editor/shader_create_dialog.h"
+#include "editor/themes/editor_scale.h"
 #include "scene/animation/animation_tree.h"
 #include "scene/gui/check_box.h"
 #include "scene/main/window.h"
@@ -161,6 +160,20 @@ void SceneTreeDock::shortcut_input(const Ref<InputEvent> &p_event) {
 
 	// Tool selection was successful, accept the event to stop propagation.
 	accept_event();
+}
+
+void SceneTreeDock::_scene_tree_gui_input(Ref<InputEvent> p_event) {
+	Ref<InputEventKey> key = p_event;
+
+	if (key.is_null() || !key->is_pressed() || key->is_echo()) {
+		return;
+	}
+
+	if (ED_IS_SHORTCUT("editor/open_search", p_event)) {
+		filter->grab_focus();
+		filter->select_all();
+		accept_event();
+	}
 }
 
 void SceneTreeDock::instantiate(const String &p_file) {
@@ -661,10 +674,10 @@ void SceneTreeDock::_tool_selected(int p_tool, bool p_confirm_override) {
 
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			if (selection.size() == 1) {
-				undo_redo->create_action(TTR("Move Node In Parent"));
+				undo_redo->create_action(TTR("Move Node in Parent"));
 			}
 			if (selection.size() > 1) {
-				undo_redo->create_action(TTR("Move Nodes In Parent"));
+				undo_redo->create_action(TTR("Move Nodes in Parent"));
 			}
 
 			for (int i = 0; i < selection.size(); i++) {
@@ -1393,7 +1406,7 @@ void SceneTreeDock::_notification(int p_what) {
 			node_shortcuts_toggle->set_flat(true);
 			node_shortcuts_toggle->set_icon(get_editor_theme_icon(SNAME("Favorites")));
 			node_shortcuts_toggle->set_toggle_mode(true);
-			node_shortcuts_toggle->set_tooltip_text(TTR("Switch to Favorite Nodes"));
+			node_shortcuts_toggle->set_tooltip_text(TTR("Toggle the display of favorite nodes."));
 			node_shortcuts_toggle->set_pressed(EDITOR_GET("_use_favorites_root_selection"));
 			node_shortcuts_toggle->set_anchors_and_offsets_preset(Control::PRESET_CENTER_RIGHT);
 			node_shortcuts_toggle->connect("pressed", callable_mp(this, &SceneTreeDock::_update_create_root_dialog));
@@ -1811,7 +1824,6 @@ bool SceneTreeDock::_check_node_path_recursive(Node *p_root_node, Variant &r_var
 					EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 					undo_redo->add_do_property(resource, propertyname, updated_variant);
 					undo_redo->add_undo_property(resource, propertyname, old_variant);
-					resource->set(propertyname, updated_variant);
 				}
 			}
 			break;
@@ -1955,7 +1967,6 @@ void SceneTreeDock::perform_node_renames(Node *p_base, HashMap<Node *, NodePath>
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			undo_redo->add_do_property(p_base, propertyname, updated_variant);
 			undo_redo->add_undo_property(p_base, propertyname, old_variant);
-			p_base->set(propertyname, updated_variant);
 		}
 	}
 
@@ -2836,7 +2847,6 @@ void SceneTreeDock::perform_node_replace(Node *p_base, Node *p_node, Node *p_by_
 			EditorUndoRedoManager *undo_redo = EditorUndoRedoManager::get_singleton();
 			undo_redo->add_do_property(p_base, propertyname, updated_variant);
 			undo_redo->add_undo_property(p_base, propertyname, old_variant);
-			p_base->set(propertyname, updated_variant);
 			if (!warn_message.is_empty()) {
 				String node_path = (String(edited_scene->get_name()) + "/" + String(edited_scene->get_path_to(p_base))).trim_suffix("/.");
 				WARN_PRINT(warn_message + vformat("Removing the node from variable \"%s\" on node \"%s\".", propertyname, node_path));
@@ -3999,6 +4009,7 @@ void SceneTreeDock::_list_all_subresources(PopupMenu *p_menu) {
 			}
 
 			p_menu->add_item(display_text);
+			p_menu->set_item_tooltip(-1, pair.first->get_path());
 			p_menu->set_item_metadata(-1, pair.first->get_instance_id());
 		}
 	}
@@ -4078,7 +4089,7 @@ SceneTreeDock *SceneTreeDock::singleton = nullptr;
 
 void SceneTreeDock::_update_configuration_warning() {
 	if (singleton) {
-		MessageQueue::get_singleton()->push_callable(callable_mp(singleton->scene_tree, &SceneTreeEditor::update_warning));
+		callable_mp(singleton->scene_tree, &SceneTreeEditor::update_warning).call_deferred();
 	}
 }
 
@@ -4120,7 +4131,7 @@ SceneTreeDock::SceneTreeDock(Node *p_scene_root, EditorSelection *p_editor_selec
 	ED_SHORTCUT("scene_tree/make_root", TTR("Make Scene Root"));
 	ED_SHORTCUT("scene_tree/save_branch_as_scene", TTR("Save Branch as Scene"));
 	ED_SHORTCUT("scene_tree/copy_node_path", TTR("Copy Node Path"), KeyModifierMask::CMD_OR_CTRL | KeyModifierMask::SHIFT | Key::C);
-	ED_SHORTCUT("scene_tree/show_in_file_system", TTR("Show In FileSystem"));
+	ED_SHORTCUT("scene_tree/show_in_file_system", TTR("Show in FileSystem"));
 	ED_SHORTCUT("scene_tree/toggle_unique_name", TTR("Toggle Access as Unique Name"));
 	ED_SHORTCUT("scene_tree/delete_no_confirm", TTR("Delete (No Confirm)"), KeyModifierMask::SHIFT | Key::KEY_DELETE);
 	ED_SHORTCUT("scene_tree/delete", TTR("Delete"), Key::KEY_DELETE);
@@ -4226,6 +4237,7 @@ SceneTreeDock::SceneTreeDock(Node *p_scene_root, EditorSelection *p_editor_selec
 	scene_tree->connect("script_dropped", callable_mp(this, &SceneTreeDock::_script_dropped));
 	scene_tree->connect("nodes_dragged", callable_mp(this, &SceneTreeDock::_nodes_drag_begin));
 
+	scene_tree->get_scene_tree()->connect("gui_input", callable_mp(this, &SceneTreeDock::_scene_tree_gui_input));
 	scene_tree->get_scene_tree()->connect("item_icon_double_clicked", callable_mp(this, &SceneTreeDock::_focus_node));
 
 	editor_selection->connect("selection_changed", callable_mp(this, &SceneTreeDock::_selection_changed));

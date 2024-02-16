@@ -40,11 +40,11 @@
 #include "editor/editor_file_system.h"
 #include "editor/editor_node.h"
 #include "editor/editor_paths.h"
-#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/export/editor_export.h"
 #include "editor/plugins/script_editor_plugin.h"
+#include "editor/themes/editor_scale.h"
 #include "editor_export_plugin.h"
 #include "scene/resources/image_texture.h"
 #include "scene/resources/packed_scene.h"
@@ -901,7 +901,7 @@ Vector<String> EditorExportPlatform::get_forced_export_files() {
 					if (FileAccess::exists(abs_path)) {
 						files.push_back(ts_data);
 						// Remove the file later.
-						MessageQueue::get_singleton()->push_callable(callable_mp_static(DirAccess::remove_absolute), abs_path);
+						callable_mp_static(DirAccess::remove_absolute).call_deferred(abs_path);
 					}
 				}
 			}
@@ -1210,7 +1210,7 @@ Error EditorExportPlatform::export_project_files(const Ref<EditorExportPreset> &
 				}
 
 				if (remap_features.size() > 1) {
-					this->resolve_platform_feature_priorities(p_preset, remap_features);
+					resolve_platform_feature_priorities(p_preset, remap_features);
 				}
 
 				err = OK;

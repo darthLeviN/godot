@@ -405,6 +405,7 @@ static Vector<real_t> _xform_to_array(const Transform3D p_transform) {
 
 Error GLTFDocument::_serialize_nodes(Ref<GLTFState> p_state) {
 	Array nodes;
+	const int scene_node_count = p_state->scene_nodes.size();
 	for (int i = 0; i < p_state->nodes.size(); i++) {
 		Dictionary node;
 		Ref<GLTFNode> gltf_node = p_state->nodes[i];
@@ -452,10 +453,13 @@ Error GLTFDocument::_serialize_nodes(Ref<GLTFState> p_state) {
 			node["children"] = children;
 		}
 
+		Node *scene_node = nullptr;
+		if (i < scene_node_count) {
+			scene_node = p_state->scene_nodes[i];
+		}
 		for (Ref<GLTFDocumentExtension> ext : document_extensions) {
 			ERR_CONTINUE(ext.is_null());
-			ERR_CONTINUE(!p_state->scene_nodes.find(i));
-			Error err = ext->export_node(p_state, gltf_node, node, p_state->scene_nodes[i]);
+			Error err = ext->export_node(p_state, gltf_node, node, scene_node);
 			ERR_CONTINUE(err != OK);
 		}
 
@@ -3812,7 +3816,6 @@ Error GLTFDocument::_serialize_materials(Ref<GLTFState> p_state) {
 						}
 						img->decompress();
 						img->convert(Image::FORMAT_RGBA8);
-						img->convert_ra_rgba8_to_rg();
 						for (int32_t y = 0; y < img->get_height(); y++) {
 							for (int32_t x = 0; x < img->get_width(); x++) {
 								Color c = img->get_pixel(x, y);
@@ -5979,8 +5982,13 @@ void GLTFDocument::_generate_skeleton_bone_node(Ref<GLTFState> p_state, const GL
 			p_scene_parent = bone_attachment;
 		}
 		if (skeleton->get_parent() == nullptr) {
-			p_scene_parent->add_child(skeleton, true);
-			skeleton->set_owner(p_scene_root);
+			if (p_scene_root) {
+				p_scene_parent->add_child(skeleton, true);
+				skeleton->set_owner(p_scene_root);
+			} else {
+				p_scene_parent = skeleton;
+				p_scene_root = skeleton;
+			}
 		}
 	}
 
@@ -6075,22 +6083,22 @@ struct SceneFormatImporterGLTFInterpolate {
 template <>
 struct SceneFormatImporterGLTFInterpolate<Quaternion> {
 	Quaternion lerp(const Quaternion &a, const Quaternion &b, const float c) const {
-		ERR_FAIL_COND_V_MSG(!a.is_normalized(), Quaternion(), "The quaternion \"a\" must be normalized.");
-		ERR_FAIL_COND_V_MSG(!b.is_normalized(), Quaternion(), "The quaternion \"b\" must be normalized.");
+		ERR_FAIL_COND_V_MSG(!a.is_normalized(), Quaternion(), vformat("The quaternion \"a\" %s must be normalized.", a));
+		ERR_FAIL_COND_V_MSG(!b.is_normalized(), Quaternion(), vformat("The quaternion \"b\" %s must be normalized.", b));
 
 		return a.slerp(b, c).normalized();
 	}
 
 	Quaternion catmull_rom(const Quaternion &p0, const Quaternion &p1, const Quaternion &p2, const Quaternion &p3, const float c) {
-		ERR_FAIL_COND_V_MSG(!p1.is_normalized(), Quaternion(), "The quaternion \"p1\" must be normalized.");
-		ERR_FAIL_COND_V_MSG(!p2.is_normalized(), Quaternion(), "The quaternion \"p2\" must be normalized.");
+		ERR_FAIL_COND_V_MSG(!p1.is_normalized(), Quaternion(), vformat("The quaternion \"p1\" (%s) must be normalized.", p1));
+		ERR_FAIL_COND_V_MSG(!p2.is_normalized(), Quaternion(), vformat("The quaternion \"p2\" (%s) must be normalized.", p2));
 
 		return p1.slerp(p2, c).normalized();
 	}
 
 	Quaternion bezier(const Quaternion start, const Quaternion control_1, const Quaternion control_2, const Quaternion end, const float t) {
-		ERR_FAIL_COND_V_MSG(!start.is_normalized(), Quaternion(), "The start quaternion must be normalized.");
-		ERR_FAIL_COND_V_MSG(!end.is_normalized(), Quaternion(), "The end quaternion must be normalized.");
+		ERR_FAIL_COND_V_MSG(!start.is_normalized(), Quaternion(), vformat("The start quaternion %s must be normalized.", start));
+		ERR_FAIL_COND_V_MSG(!end.is_normalized(), Quaternion(), vformat("The end quaternion %s must be normalized.", end));
 
 		return start.slerp(end, t).normalized();
 	}
@@ -6579,7 +6587,7 @@ float GLTFDocument::get_max_component(const Color &p_color) {
 	return MAX(MAX(r, g), b);
 }
 
-void GLTFDocument::_process_mesh_instances(Ref<GLTFState> p_state) {
+void GLTFDocument::_process_mesh_instances(Ref<GLTFState> p_state, Node *p_scene_root) {
 	for (GLTFNodeIndex node_i = 0; node_i < p_state->nodes.size(); ++node_i) {
 		Ref<GLTFNode> node = p_state->nodes[node_i];
 
@@ -6604,7 +6612,7 @@ void GLTFDocument::_process_mesh_instances(Ref<GLTFState> p_state) {
 
 			mi->get_parent()->remove_child(mi);
 			skeleton->add_child(mi, true);
-			mi->set_owner(skeleton->get_owner());
+			mi->set_owner(p_scene_root);
 
 			mi->set_skin(p_state->skins.write[skin_i]->godot_skin);
 			mi->set_skeleton_path(mi->get_path_to(skeleton));
@@ -7458,7 +7466,7 @@ Node *GLTFDocument::generate_scene(Ref<GLTFState> p_state, float p_bake_fps, boo
 	Error err = OK;
 	Node *root = _generate_scene_node_tree(p_state);
 	ERR_FAIL_NULL_V(root, nullptr);
-	_process_mesh_instances(p_state);
+	_process_mesh_instances(p_state, root);
 	if (p_state->get_create_animations() && p_state->animations.size()) {
 		AnimationPlayer *ap = memnew(AnimationPlayer);
 		root->add_child(ap, true);
@@ -7471,11 +7479,13 @@ Node *GLTFDocument::generate_scene(Ref<GLTFState> p_state, float p_bake_fps, boo
 		ERR_CONTINUE(!E.value);
 		for (Ref<GLTFDocumentExtension> ext : document_extensions) {
 			ERR_CONTINUE(ext.is_null());
-			ERR_CONTINUE(!p_state->json.has("nodes"));
-			Array nodes = p_state->json["nodes"];
-			ERR_CONTINUE(E.key >= nodes.size());
-			ERR_CONTINUE(E.key < 0);
-			Dictionary node_json = nodes[E.key];
+			Dictionary node_json;
+			if (p_state->json.has("nodes")) {
+				Array nodes = p_state->json["nodes"];
+				if (0 <= E.key && E.key < nodes.size()) {
+					node_json = nodes[E.key];
+				}
+			}
 			Ref<GLTFNode> gltf_node = p_state->nodes[E.key];
 			err = ext->import_node(p_state, gltf_node, node_json, E.value);
 			ERR_CONTINUE(err != OK);

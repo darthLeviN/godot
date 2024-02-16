@@ -36,10 +36,10 @@
 #include "editor/debugger/editor_debugger_node.h"
 #include "editor/editor_command_palette.h"
 #include "editor/editor_node.h"
-#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/gui/editor_toaster.h"
+#include "editor/themes/editor_scale.h"
 #include "scene/gui/rich_text_label.h"
 #include "scene/gui/split_container.h"
 
@@ -824,7 +824,7 @@ void ScriptEditor::_update_modified_scripts_for_external_editor(Ref<Script> p_fo
 			scr->set_last_modified_time(rel_scr->get_last_modified_time());
 			scr->update_exports();
 
-			trigger_live_script_reload();
+			trigger_live_script_reload(scr->get_path());
 		}
 	}
 }
@@ -886,7 +886,7 @@ void ScriptTextEditor::_breakpoint_item_pressed(int p_idx) {
 		_edit_option(breakpoints_menu->get_item_id(p_idx));
 	} else {
 		code_editor->goto_line(breakpoints_menu->get_item_metadata(p_idx));
-		code_editor->get_text_editor()->call_deferred(SNAME("center_viewport_to_caret")); //Need to be deferred, because goto uses call_deferred().
+		callable_mp((TextEdit *)code_editor->get_text_editor(), &TextEdit::center_viewport_to_caret).call_deferred(0); // Needs to be deferred, because goto uses call_deferred().
 	}
 }
 
@@ -1273,27 +1273,27 @@ void ScriptTextEditor::_edit_option(int p_op) {
 	switch (p_op) {
 		case EDIT_UNDO: {
 			tx->undo();
-			tx->call_deferred(SNAME("grab_focus"));
+			callable_mp((Control *)tx, &Control::grab_focus).call_deferred();
 		} break;
 		case EDIT_REDO: {
 			tx->redo();
-			tx->call_deferred(SNAME("grab_focus"));
+			callable_mp((Control *)tx, &Control::grab_focus).call_deferred();
 		} break;
 		case EDIT_CUT: {
 			tx->cut();
-			tx->call_deferred(SNAME("grab_focus"));
+			callable_mp((Control *)tx, &Control::grab_focus).call_deferred();
 		} break;
 		case EDIT_COPY: {
 			tx->copy();
-			tx->call_deferred(SNAME("grab_focus"));
+			callable_mp((Control *)tx, &Control::grab_focus).call_deferred();
 		} break;
 		case EDIT_PASTE: {
 			tx->paste();
-			tx->call_deferred(SNAME("grab_focus"));
+			callable_mp((Control *)tx, &Control::grab_focus).call_deferred();
 		} break;
 		case EDIT_SELECT_ALL: {
 			tx->select_all();
-			tx->call_deferred(SNAME("grab_focus"));
+			callable_mp((Control *)tx, &Control::grab_focus).call_deferred();
 		} break;
 		case EDIT_MOVE_LINE_UP: {
 			code_editor->move_lines_up();
@@ -2507,5 +2507,5 @@ void ScriptTextEditor::register_editor() {
 }
 
 void ScriptTextEditor::validate() {
-	this->code_editor->validate_script();
+	code_editor->validate_script();
 }

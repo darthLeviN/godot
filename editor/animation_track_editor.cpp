@@ -35,7 +35,6 @@
 #include "core/input/input.h"
 #include "editor/animation_bezier_editor.h"
 #include "editor/editor_node.h"
-#include "editor/editor_scale.h"
 #include "editor/editor_settings.h"
 #include "editor/editor_string_names.h"
 #include "editor/editor_undo_redo_manager.h"
@@ -43,6 +42,7 @@
 #include "editor/gui/scene_tree_editor.h"
 #include "editor/inspector_dock.h"
 #include "editor/plugins/animation_player_editor_plugin.h"
+#include "editor/themes/editor_scale.h"
 #include "scene/animation/animation_player.h"
 #include "scene/animation/tween.h"
 #include "scene/gui/check_box.h"
@@ -1921,7 +1921,7 @@ void AnimationTrackEdit::_notification(int p_what) {
 			Color linecolor = color;
 			linecolor.a = 0.2;
 
-			Color dc = get_theme_color(SNAME("disabled_font_color"), EditorStringName(Editor));
+			Color dc = get_theme_color(SNAME("font_disabled_color"), EditorStringName(Editor));
 
 			// NAMES AND ICONS //
 
@@ -4613,7 +4613,7 @@ void AnimationTrackEditor::_animation_changed() {
 	}
 
 	animation_changing_awaiting_update = true;
-	call_deferred(SNAME("_animation_update"));
+	callable_mp(this, &AnimationTrackEditor::_animation_update).call_deferred();
 }
 
 void AnimationTrackEditor::_snap_mode_changed(int p_mode) {
@@ -6478,7 +6478,6 @@ void AnimationTrackEditor::_select_all_tracks_for_copy() {
 }
 
 void AnimationTrackEditor::_bind_methods() {
-	ClassDB::bind_method("_animation_update", &AnimationTrackEditor::_animation_update);
 	ClassDB::bind_method("_track_grab_focus", &AnimationTrackEditor::_track_grab_focus);
 	ClassDB::bind_method("_redraw_tracks", &AnimationTrackEditor::_redraw_tracks);
 	ClassDB::bind_method("_clear_selection_for_anim", &AnimationTrackEditor::_clear_selection_for_anim);
