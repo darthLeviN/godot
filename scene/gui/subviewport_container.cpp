@@ -64,9 +64,47 @@ void SubViewportContainer::set_stretch(bool p_enable) {
 	queue_redraw();
 }
 
+
 bool SubViewportContainer::is_stretch_enabled() const {
 	return stretch;
 }
+
+
+void SubViewportContainer::set_stretch_transform(bool p_enable) {
+	if (stretch_transform == p_enable) {
+		return;
+	}
+
+	stretch_transform = p_enable;
+	recalc_force_viewport_sizes();
+	update_minimum_size();
+	queue_sort();
+	queue_redraw();
+}
+
+
+bool SubViewportContainer::get_stretch_transform() const {
+	return stretch_transform;
+}
+
+
+void SubViewportContainer::set_stretch_scale(bool p_enable) {
+	if (stretch_scale == p_enable) {
+		return;
+	}
+
+	stretch_scale = p_enable;
+	recalc_force_viewport_sizes();
+	update_minimum_size();
+	queue_sort();
+	queue_redraw();
+}
+
+
+bool SubViewportContainer::get_stretch_scale() const {
+	return stretch_scale;
+}
+
 
 void SubViewportContainer::set_stretch_shrink(int p_shrink) {
 	ERR_FAIL_COND(p_shrink < 1);
@@ -85,15 +123,31 @@ void SubViewportContainer::recalc_force_viewport_sizes() {
 		return;
 	}
 
-	// If stretch is enabled, make sure that all child SubViwewports have the correct size.
 	for (int i = 0; i < get_child_count(); i++) {
 		SubViewport *c = Object::cast_to<SubViewport>(get_child(i));
+		// If stretch is enabled, make sure that all child SubViwewports have the correct size.
 		if (!c) {
 			continue;
 		}
 
-		c->set_size_force(get_size() / shrink);
+		auto multiplier = Vector2(1,1);
+
+		if (stretch_transform) {
+			if (!Engine::get_singleton()->is_editor_hint()) {
+				auto vp = get_viewport();
+				Transform2D vpt = vp->get_screen_transform();
+				multiplier = Vector2(vpt[0][0], vpt[1][1]);
+			}
+		}
+
+		c->set_size_force((get_size() * multiplier) / shrink); 
+
+		if (stretch_scale) {
+			c->set_size_2d_override(get_size());
+		}
 	}
+	
+
 }
 
 int SubViewportContainer::get_stretch_shrink() const {
@@ -114,7 +168,9 @@ void SubViewportContainer::_notification(int p_what) {
 			recalc_force_viewport_sizes();
 		} break;
 
-		case NOTIFICATION_ENTER_TREE:
+		case NOTIFICATION_ENTER_TREE: {
+			get_viewport()->connect("size_changed", callable_mp(this, &SubViewportContainer::recalc_force_viewport_sizes));
+		}
 		case NOTIFICATION_VISIBILITY_CHANGED: {
 			for (int i = 0; i < get_child_count(); i++) {
 				SubViewport *c = Object::cast_to<SubViewport>(get_child(i));
@@ -284,11 +340,19 @@ void SubViewportContainer::_bind_methods() {
 	ClassDB::bind_method(D_METHOD("set_stretch", "enable"), &SubViewportContainer::set_stretch);
 	ClassDB::bind_method(D_METHOD("is_stretch_enabled"), &SubViewportContainer::is_stretch_enabled);
 
+	ClassDB::bind_method(D_METHOD("set_stretch_transform", "enable"), &SubViewportContainer::set_stretch_transform);
+	ClassDB::bind_method(D_METHOD("get_stretch_transform"), &SubViewportContainer::get_stretch_transform);
+
+	ClassDB::bind_method(D_METHOD("set_stretch_scale", "enable"), &SubViewportContainer::set_stretch_scale);
+	ClassDB::bind_method(D_METHOD("get_stretch_scale"), &SubViewportContainer::get_stretch_scale);
+
 	ClassDB::bind_method(D_METHOD("set_stretch_shrink", "amount"), &SubViewportContainer::set_stretch_shrink);
 	ClassDB::bind_method(D_METHOD("get_stretch_shrink"), &SubViewportContainer::get_stretch_shrink);
 
 	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "stretch"), "set_stretch", "is_stretch_enabled");
 	ADD_PROPERTY(PropertyInfo(Variant::INT, "stretch_shrink"), "set_stretch_shrink", "get_stretch_shrink");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "stretch_transform"), "set_stretch_transform", "get_stretch_transform");
+	ADD_PROPERTY(PropertyInfo(Variant::BOOL, "stretch_scale"), "set_stretch_scale", "get_stretch_scale");
 
 	GDVIRTUAL_BIND(_propagate_input_event, "event");
 }

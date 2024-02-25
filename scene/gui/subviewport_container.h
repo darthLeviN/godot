@@ -37,6 +37,8 @@ class SubViewportContainer : public Container {
 	GDCLASS(SubViewportContainer, Container);
 
 	bool stretch = false;
+	bool stretch_transform = false;
+	bool stretch_scale = false;
 	int shrink = 1;
 	void _notify_viewports(int p_notification);
 	bool _is_propagated_in_gui_input(const Ref<InputEvent> &p_event);
@@ -55,6 +57,10 @@ protected:
 public:
 	void set_stretch(bool p_enable);
 	bool is_stretch_enabled() const;
+	void set_stretch_transform(bool p_enable);
+	bool get_stretch_transform() const;
+	void set_stretch_scale(bool p_enable);
+	bool get_stretch_scale() const;
 
 	virtual void input(const Ref<InputEvent> &p_event) override;
 	virtual void unhandled_input(const Ref<InputEvent> &p_event) override;
