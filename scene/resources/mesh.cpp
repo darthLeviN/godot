@@ -744,17 +744,25 @@ Ref<Mesh> Mesh::create_outline(float p_margin) const {
 		//displace normals
 		int vc2 = vertices.size();
 
+		PackedFloat32Array customs0;
+		customs0.resize(vertices.size()*3);
+		float *cptr = customs0.ptrw();
+
 		for (int i = 0; i < vc2; i++) {
 			Vector3 t = r[i];
 
 			HashMap<Vector3, Vector3>::Iterator E = normal_accum.find(t);
 			ERR_CONTINUE(!E);
-
-			t += E->value * p_margin;
+			Vector3 dir = E->value;
+			t += dir * p_margin;
 			r[i] = t;
+			cptr[i*3] = dir.x;
+			cptr[i*3+1] = dir.y;
+			cptr[i*3+2] = dir.z;
 		}
 
 		arrays[ARRAY_VERTEX] = vertices;
+		arrays[ARRAY_CUSTOM0] = customs0;
 
 		if (!has_indices) {
 			Vector<int> new_indices;
@@ -776,9 +784,13 @@ Ref<Mesh> Mesh::create_outline(float p_margin) const {
 			arrays[ARRAY_INDEX] = indices;
 		}
 	}
-
 	Ref<ArrayMesh> newmesh = memnew(ArrayMesh);
-	newmesh->add_surface_from_arrays(PRIMITIVE_TRIANGLES, arrays);
+	BitField<ArrayFormat> format = BitField<ArrayFormat>(
+		ARRAY_CUSTOM_RGB_FLOAT << (ARRAY_FORMAT_CUSTOM_BASE + 0 * ARRAY_FORMAT_CUSTOM_BITS)
+	);
+	
+	newmesh->add_surface_from_arrays(PRIMITIVE_TRIANGLES, arrays, TypedArray<Array>(), Dictionary(), 
+	format);
 	return newmesh;
 }
 
